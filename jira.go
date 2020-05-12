@@ -15,6 +15,7 @@ import (
 	"net/http"
 
 	"github.com/PaesslerAG/jsonpath"
+	"github.com/markkurossi/cloudsdk/api/auth"
 )
 
 var (
@@ -22,6 +23,10 @@ var (
 )
 
 func Jira(w http.ResponseWriter, r *http.Request) {
+	token := auth.Authorize(w, r, REALM, tokenVerifier, tenant)
+	if token == nil {
+		return
+	}
 	if r.Method != "POST" {
 		Errorf(w, http.StatusMethodNotAllowed, "%s", r.Method)
 		return
