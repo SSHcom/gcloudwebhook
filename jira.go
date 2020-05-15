@@ -22,8 +22,8 @@ var (
 	errInvalidData = errors.New("invalid event data")
 )
 
-func Jira(w http.ResponseWriter, r *http.Request) {
-	token := auth.Authorize(w, r, REALM, tokenVerifier, tenant)
+func jira(w http.ResponseWriter, r *http.Request) {
+	token := auth.Authorize(w, r, Realm, tokenVerifier, tenant)
 	if token == nil {
 		return
 	}

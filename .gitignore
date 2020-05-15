@@ -15,3 +15,5 @@
 # vendor/
 
 apps/cmd/cmd
+apps/privx/privx
+apps/privx/*.json
