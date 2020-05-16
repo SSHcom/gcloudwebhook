@@ -71,6 +71,32 @@ func GetPrivXInstances() ([]*Instance, error) {
 	return result, nil
 }
 
+// GetPrivXInstance gets the PrivX instance by name.
+func GetPrivXInstance(name string) ([]*Instance, error) {
+	q := fs.Collection(collection).Where("name", "==", name)
+	iter := q.Documents(ctx)
+	defer iter.Stop()
+
+	var result []*Instance
+
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		instance, err := unmarshalInstance(doc.Data())
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, instance)
+	}
+
+	return result, nil
+}
+
 func unmarshalInstance(data map[string]interface{}) (*Instance, error) {
 	name, ok := data["name"].(string)
 	if !ok {

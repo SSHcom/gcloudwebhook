@@ -14,12 +14,14 @@ import (
 	"os"
 
 	"github.com/SSHcom/gcloudwebhook"
+	"github.com/markkurossi/tabulate"
 )
 
 func main() {
 	add := flag.Bool("a", false, "Add new PrivX instance details")
 	list := flag.Bool("l", false, "List PrivX instances")
 	name := flag.String("n", "", "PrivX instance name")
+	info := flag.Bool("i", false, "Print instance information")
 	flag.Parse()
 
 	args := flag.Args()
@@ -38,6 +40,13 @@ func main() {
 		err := listInstances()
 		if err != nil {
 			log.Fatalf("Failed to list instances: %s", err)
+		}
+	}
+
+	if *info {
+		err := instanceInfo(*name)
+		if err != nil {
+			log.Fatalf("Failed to get instance info: %s", err)
 		}
 	}
 }
@@ -79,6 +88,26 @@ func listInstances() error {
 		for k, v := range inst.UserMappings {
 			fmt.Printf(" %s\t=> %s\n", k, v)
 		}
+	}
+
+	return nil
+}
+
+func instanceInfo(name string) error {
+	instances, err := gcloudwebhook.GetPrivXInstance(name)
+	if err != nil {
+		return err
+	}
+	for _, instance := range instances {
+		tab := tabulate.NewUnicode()
+		tab.Header("Field").SetAlign(tabulate.MR)
+		tab.Header("Value").SetAlign(tabulate.ML)
+
+		err = tabulate.Reflect(tab, tabulate.OmitEmpty, nil, instance)
+		if err != nil {
+			return err
+		}
+		tab.Print(os.Stdout)
 	}
 
 	return nil

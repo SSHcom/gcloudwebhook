@@ -15,6 +15,9 @@ import (
 	"os"
 
 	"cloud.google.com/go/firestore"
+	"github.com/SSHcom/privx-sdk-go/api"
+	"github.com/SSHcom/privx-sdk-go/api/rolestore"
+	"github.com/SSHcom/privx-sdk-go/oauth"
 	"github.com/markkurossi/cloudsdk/api/auth"
 	"github.com/markkurossi/go-libs/fn"
 )
@@ -37,6 +40,10 @@ var (
 	authPubkey ed25519.PublicKey
 	ctx        context.Context
 	fs         *firestore.Client
+	instance   *Instance
+	roleStore  *rolestore.Client
+	userIDs    = make(map[string]string)
+	roleIDs    = make(map[string]string)
 )
 
 func init() {
@@ -79,9 +86,70 @@ func init() {
 
 	instanceName, ok := os.LookupEnv(InstanceEnvVar)
 	if !ok {
-		log.Fatalf("PrivX instance name not set $%s", InstanceEnvVar)
+		_, ok = os.LookupEnv("GCP_PROJECT")
+		if ok {
+			log.Fatalf("PrivX instance name not set: $%s", InstanceEnvVar)
+		} else {
+			log.Printf("Privx instance name not set: $%s", InstanceEnvVar)
+		}
+	} else {
+		instances, err := GetPrivXInstance(instanceName)
+		if err != nil {
+			log.Fatalf("GetPrivXInstances: %s", err)
+		}
+		if len(instances) != 1 {
+			log.Fatalf("Invalid amount (%d) of PrivX instances with name '%s'",
+				len(instances), instanceName)
+		}
+		instance = instances[0]
+		initPrivX()
 	}
-	_ = instanceName
+}
+
+func initPrivX() {
+	auth, err := oauth.NewClient(instance.Config.Auth,
+		instance.Config.API.Endpoint,
+		instance.Config.API.Certificate.X509, true)
+	if err != nil {
+		log.Fatal(err)
+	}
+	client, err := api.NewClient(api.Authenticator(auth),
+		api.Endpoint(instance.Config.API.Endpoint),
+		api.X509(instance.Config.API.Certificate.X509))
+	if err != nil {
+		log.Fatal(err)
+	}
+	roleStore, err = rolestore.NewClient(client)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Resolve user IDs
+	for k, v := range instance.UserMappings {
+		users, err := roleStore.SearchUsers(v, "")
+		if err != nil {
+			log.Fatalf("Searching user '%s' failed: %s", v, err)
+		}
+		switch len(users) {
+		case 0:
+			log.Printf("User '%s' not found", v)
+
+		case 1:
+			userIDs[k] = users[0].ID
+
+		default:
+			log.Printf("Multiple matches (%d) for user '%s'", len(users), v)
+		}
+	}
+
+	// Resolve role IDs.
+	roles, err := roleStore.GetRoles()
+	if err != nil {
+		log.Fatalf("Failed to get roles: %s", err)
+	}
+	for _, role := range roles {
+		roleIDs[role.Name] = role.ID
+	}
 }
 
 // PrivXWebhook is the cloud function entry point for Jira-PrivX

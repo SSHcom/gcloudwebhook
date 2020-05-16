@@ -22,6 +22,11 @@ var (
 	errInvalidData = errors.New("invalid event data")
 )
 
+const (
+	// PrivX user role to assign
+	Role = "ssh-user"
+)
+
 func jira(w http.ResponseWriter, r *http.Request) {
 	token := auth.Authorize(w, r, Realm, tokenVerifier, tenant)
 	if token == nil {
@@ -51,6 +56,18 @@ func jira(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("Ticket %s: %s => %s\n", ticket, from, to)
+	err = removeUserRole(from, Role)
+	if err != nil {
+		Errorf(w, http.StatusInternalServerError,
+			"error removing user role: %s", err)
+		return
+	}
+	err = addUserRole(to, Role)
+	if err != nil {
+		Errorf(w, http.StatusInternalServerError,
+			"error adding user role: %s", err)
+		return
+	}
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -125,4 +142,34 @@ func getAssignee(data []byte) (string, string, string, error) {
 	default:
 		return "", "", "", fmt.Errorf("unsupported event type '%s'", eventType)
 	}
+}
+
+func removeUserRole(user, role string) error {
+	if len(user) == 0 {
+		return nil
+	}
+	userID, ok := userIDs[user]
+	if !ok {
+		return fmt.Errorf("Unknown user '%s'", user)
+	}
+	roleID, ok := roleIDs[role]
+	if !ok {
+		return fmt.Errorf("Unknown role '%s'", role)
+	}
+	return roleStore.RemoveUserRole(userID, roleID)
+}
+
+func addUserRole(user, role string) error {
+	if len(user) == 0 {
+		return nil
+	}
+	userID, ok := userIDs[user]
+	if !ok {
+		return fmt.Errorf("Unknown user '%s'", user)
+	}
+	roleID, ok := roleIDs[role]
+	if !ok {
+		return fmt.Errorf("Unknown role '%s'", role)
+	}
+	return roleStore.AddUserRole(userID, roleID)
 }
