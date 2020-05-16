@@ -23,7 +23,7 @@ var (
 )
 
 const (
-	// PrivX user role to assign
+	// Role is PrivX user role to assign.
 	Role = "ssh-user"
 )
 
@@ -35,10 +35,6 @@ func jira(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		Errorf(w, http.StatusMethodNotAllowed, "%s", r.Method)
 		return
-	}
-	values := r.URL.Query()
-	for k, v := range values {
-		log.Printf("Query[%s]=%v", k, v)
 	}
 
 	data, err := ioutil.ReadAll(r.Body)
